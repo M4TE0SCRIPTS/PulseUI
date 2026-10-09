@@ -2557,7 +2557,7 @@ function PulseUI:CreateWindow(opts)
         if state == nil then state = not self._visible end
         if state == self._visible then return end
         self._visible = state
-        applyBlur(state)
+        applyBlur(state and not minimized)
         if not PulseUI.Animations then
             main.Visible = state
             return
@@ -2588,6 +2588,7 @@ function PulseUI:CreateWindow(opts)
     function window:Minimize(state)
         if state == nil then state = not minimized end
         minimized = state
+        applyBlur(window._visible and not state) -- sin blur mientras está minimizada
         local newH = state and topH or sizeH
         local curH = main.Size.Y.Offset
         Tween(main, {
@@ -2642,7 +2643,7 @@ function PulseUI:CreateWindow(opts)
     end
     function window:SetBlur(n)
         blurSize = (n == true) and 16 or (tonumber(n) or 0)
-        if window._visible then applyBlur(true) end
+        if window._visible and not minimized then applyBlur(true) end
     end
 
     -- Transparencia de la ventana (0 = opaca). Con transparencia se ocultan los rellenos de esquinas.
@@ -2814,27 +2815,40 @@ function PulseUI:CreateWindow(opts)
         local textIcon = (icon and not imageIcon) and tostring(icon) or nil
         local isTop = tabMode == "Top"
 
+        -- El UIPadding mueve a los hijos: el ícono se coloca con offset negativo para quedar al borde izquierdo.
+        local padLeft
+        if isTop then
+            padLeft = 12 + (imageIcon and 22 or 0)
+        else
+            padLeft = imageIcon and 30 or 10
+        end
+
         local btn = Make("TextButton", {
             Size = isTop and UDim2.new(0, 0, 0, 26) or UDim2.new(1, 0, 0, 30),
             AutomaticSize = isTop and Enum.AutomaticSize.X or Enum.AutomaticSize.None,
             BackgroundColor3 = theme.Element, BorderSizePixel = 0,
             Text = (textIcon and (textIcon .. " ") or "") .. name, TextColor3 = theme.SubText,
             Font = Fonts.Medium, TextSize = TS(13), AutoButtonColor = false,
+            TextXAlignment = isTop and Enum.TextXAlignment.Center or Enum.TextXAlignment.Left,
+            TextScaled = not isTop, -- en modo Left el nombre se encoge para que quepa completo
             LayoutOrder = #window.Tabs + 1,
         }, tabBar)
         Round(btn, 8)
-        if isTop or imageIcon then
-            Make("UIPadding", {
-                PaddingLeft = UDim.new(0, (isTop and 12 or 0) + (imageIcon and 22 or 0)),
-                PaddingRight = UDim.new(0, isTop and 12 or 0),
-            }, btn)
+        Make("UIPadding", {
+            PaddingLeft = UDim.new(0, padLeft),
+            PaddingRight = UDim.new(0, isTop and 12 or 8),
+            PaddingTop = UDim.new(0, isTop and 0 or 2),
+            PaddingBottom = UDim.new(0, isTop and 0 or 2),
+        }, btn)
+        if not isTop then
+            Make("UITextSizeConstraint", { MaxTextSize = TS(13), MinTextSize = 8 }, btn)
         end
         local iconImg
         if imageIcon then
             local id = tostring(icon)
             if tonumber(id) then id = "rbxassetid://" .. id end
             iconImg = Make("ImageLabel", {
-                Size = UDim2.new(0, 16, 0, 16), Position = UDim2.new(0, isTop and 10 or 8, 0.5, -8),
+                Size = UDim2.new(0, 16, 0, 16), Position = UDim2.new(0, (isTop and 10 or 8) - padLeft, 0.5, -8),
                 BackgroundTransparency = 1, Image = id, ImageColor3 = theme.SubText,
             }, btn)
         end
@@ -2946,7 +2960,7 @@ function PulseUI:CreateWindow(opts)
         window._visible = false
         main.Visible = false
     else
-        applyBlur(true)
+        applyBlur(not opts.StartMinimized)
         if PulseUI.Animations then
             mainScale.Scale = userScale * 0.8
             Tween(mainScale, { Scale = userScale }, 0.5, Enum.EasingStyle.Back)
