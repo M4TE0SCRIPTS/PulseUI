@@ -1,20 +1,20 @@
 --[[
-    PulseUI  v4.0  -  Librería de UI para Roblox (móvil y PC)
+    PulseUI  v4.4  -  UI library for Roblox (mobile and PC)
 
-    Elementos: Section, Label, Paragraph, Divider, Button, Toggle, Slider, Dropdown,
-               TextBox, Keybind, ColorPicker  (+ búsqueda opcional por pestaña)
-    Ventana:   Name, Subtitle, Icon (id o rbxassetid), LoadingTitle/LoadingSubtitle, RGBBorders,
-               SaveConfig (guarda y carga solo), Version, Watermark, Position, Resizable, Draggable,
-               Transparency, Blur, TabPosition (Left/Top), iconos de pestañas, Font,
-               TextScale, Sounds, Language, StartMinimized, StartHidden, Stats,
-               LoadingScreen, WelcomeMessage, AutoSave/AutoLoad, ConfirmClose, Perfil,
-               borde RGB, botón UI RGB, AllowedPlaces/AllowedUsers/BlockedUsers
-    KeySystem: integrado en CreateWindow (KeySystem = true, KeySettings = {...}) con nota,
-               botón Copy, varios links, expiración de keys, bloqueo temporal, kick y key guardada
-    Extras:    notificaciones por tipo, diálogos, configs, PulseUI.Utils
-    Rayfield:  API compatible (CreateWindow con opciones de Rayfield, Window:CreateTab,
+    Elements:  Section, Label, Paragraph, Divider, Button, Toggle, Slider, Dropdown,
+               TextBox, Keybind, ColorPicker  (+ optional search on every tab)
+    Window:    Name, Subtitle, Icon (id or rbxassetid), LoadingTitle/LoadingSubtitle, RGBBorders,
+               SaveConfig (saves and loads on its own), Version, Watermark, Position, Resizable,
+               Draggable, Transparency, Blur, TabPosition (Left/Top), tab icons, Font, TextScale,
+               Sounds, Language, StartMinimized, StartHidden, Stats, LoadingScreen, WelcomeMessage,
+               AutoSave/AutoLoad, ConfirmClose, Profile, RGB border, RGB UI button,
+               AllowedPlaces/AllowedUsers/BlockedUsers
+    KeySystem: built into CreateWindow (KeySystem = true, KeySettings = {...}) with note,
+               Copy button, several links, key expiry, temporary lock, kick and saved key
+    Extras:    typed notifications, dialogs, configs, PulseUI.Utils
+    Rayfield:  compatible API (CreateWindow with Rayfield options, Window:CreateTab,
                Tab:CreateButton/Toggle/Slider/Input/Dropdown/Keybind/ColorPicker/Label/
-               Paragraph/Section/Divider, Notify con Image, LoadConfiguration, SetVisibility)
+               Paragraph/Section/Divider, Notify with Image, LoadConfiguration, SetVisibility)
 ]]
 
 local Players = game:GetService("Players")
@@ -29,14 +29,14 @@ local SoundService = game:GetService("SoundService")
 local CoreGui = game:GetService("CoreGui")
 
 local PulseUI = {
-    Version = "4.3",
+    Version = "4.4",
     Flags = {},
     Windows = {},
     Utils = {},
-    AutoNotify = false,          -- notificaciones automáticas en todos los elementos (opcional)
-    Animations = true,           -- animaciones activadas
+    AutoNotify = false,          -- notifications on every element (optional)
+    Animations = true,           -- animations enabled
     NotifyPosition = "TopRight", -- TopRight / BottomRight / TopLeft / BottomLeft
-    Language = "ES",             -- ES / EN
+    Language = "EN",             -- EN / ES (Spanish is an optional language pack)
     Sounds = {
         Enabled = false, Volume = 0.5,
         Click = "rbxasset://sounds/clickfast.wav",
@@ -65,7 +65,7 @@ local Themes = {
 }
 PulseUI.Themes = Themes
 
--- Temas con los nombres de Rayfield
+-- Themes with Rayfield's names
 Themes.Default = Themes.Dark
 Themes.Ocean = {
     Main = Color3.fromRGB(15, 25, 35), Top = Color3.fromRGB(20, 35, 50),
@@ -103,7 +103,7 @@ Themes.Serenity = {
     Text = Color3.fromRGB(30, 45, 45), SubText = Color3.fromRGB(95, 120, 120),
 }
 
--- Arma el tema: nombre ("Dark", "Ocean"...) o tabla de Rayfield (Background, Topbar, ...) + CustomTheme
+-- Builds the theme: a name ("Dark", "Ocean"...) or a Rayfield table (Background, Topbar, ...) + CustomTheme
 local function BuildTheme(themeOpt, custom)
     local base = Themes.Dark
     local extra
@@ -145,7 +145,7 @@ local Rainbow = {
     Color3.fromRGB(0, 255, 255), Color3.fromRGB(0, 0, 255), Color3.fromRGB(255, 0, 255),
 }
 
--- ========== Idiomas ==========
+-- ========== Languages ==========
 local Strings = {
     ES = {
         notice = "Aviso", ok = "OK", cancel = "Cancelar", close = "Cerrar",
@@ -208,7 +208,7 @@ local function L(key)
     return v ~= nil and v or key
 end
 
--- ========== Fuentes y tamaño de texto ==========
+-- ========== Fonts and text size ==========
 local function FontByName(name)
     local ok, v = pcall(function() return Enum.Font[name] end)
     return ok and v or Enum.Font.Gotham
@@ -242,7 +242,7 @@ local function ApplyStyle(opts)
     if opts.TextScale then TextScale = math.clamp(opts.TextScale, 0.7, 1.4) end
 end
 
--- ========== Utilidades internas ==========
+-- ========== Internal helpers ==========
 local function Make(class, props, parent)
     local inst = Instance.new(class)
     for k, v in pairs(props or {}) do inst[k] = v end
@@ -277,7 +277,7 @@ end
 local function Safe(fn, ...)
     if typeof(fn) == "function" then
         local ok, err = pcall(fn, ...)
-        if not ok then warn("[PulseUI] Error en callback: " .. tostring(err)) end
+        if not ok then warn("[PulseUI] Callback error: " .. tostring(err)) end
     end
 end
 
@@ -318,7 +318,7 @@ local function Draggable(handle, target)
     end)
 end
 
--- Sonidos de interfaz (opcional)
+-- UI sounds (optional)
 local function PlaySfx(kind)
     local S = PulseUI.Sounds
     if not S.Enabled or not S[kind] then return end
@@ -332,7 +332,7 @@ local function PlaySfx(kind)
     end)
 end
 
--- Lista de colores -> ColorSequence cíclica
+-- Color list -> looping ColorSequence
 local function ToSequence(list)
     local n = #list
     if n == 0 then list, n = Rainbow, #Rainbow end
@@ -343,7 +343,7 @@ local function ToSequence(list)
     return ColorSequence.new(kps)
 end
 
--- Color en la posición t (0-1) de una lista, cíclico
+-- Color at position t (0-1) of a list, looping
 local function SampleColors(list, t)
     local n = #list
     if n == 0 then list, n = Rainbow, #Rainbow end
@@ -357,8 +357,8 @@ local function Trim(str)
     return (tostring(str):gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
--- Imagen: acepta un número (123456), "123456", "rbxassetid://123456", "rbxthumb://..." o un link.
--- 0 y textos que no son una imagen (por ejemplo "PON_TU_ID_AQUI" o un ícono Lucide) se ignoran.
+-- Image: accepts a number (123456), "123456", "rbxassetid://123456", "rbxthumb://..." or a link.
+-- 0 and texts that are not an image (for example "PUT_YOUR_ID_HERE" or a Lucide icon) are ignored.
 local function NormalizeImage(v)
     if v == nil or v == "" then return nil end
     if type(v) == "number" then
@@ -375,12 +375,12 @@ local function NormalizeImage(v)
     return nil
 end
 
--- ========== PulseUI.Utils (utilidades) ==========
+-- ========== PulseUI.Utils (utilities) ==========
 local Utils = PulseUI.Utils
 local LP = Players.LocalPlayer
 Utils._loops = {}
 
--- FPS (se mide con un contador ligero)
+-- FPS (measured with a light counter)
 local fpsCount, fpsLast, fpsValue = 0, os.clock(), 60
 RunService.RenderStepped:Connect(function()
     fpsCount = fpsCount + 1
@@ -419,7 +419,7 @@ function Utils.GetPlayerNames(includeSelf)
     return list
 end
 
--- Teleport a Vector3 | CFrame | BasePart | Player | nombre de jugador
+-- Teleport to a Vector3 | CFrame | BasePart | Player | player name
 function Utils.Teleport(target)
     local root = Utils.GetRoot()
     if not root then return false end
@@ -450,7 +450,7 @@ end
 
 function Utils.Rejoin()
     if #Players:GetPlayers() <= 1 then
-        LP:Kick("\nReconectando...")
+        LP:Kick("\nRejoining...")
         task.wait()
         TeleportService:Teleport(game.PlaceId, LP)
     else
@@ -488,7 +488,7 @@ function Utils.AntiAFK(state)
     end
 end
 
--- Bucles con nombre: Utils.Loop("nombre", segundos, función) / Utils.StopLoop("nombre")
+-- Named loops: Utils.Loop("name", seconds, function) / Utils.StopLoop("name")
 function Utils.StopLoop(name)
     if Utils._loops[name] then
         Utils._loops[name]()
@@ -565,7 +565,7 @@ function Utils.RandomString(len)
     return table.concat(out)
 end
 
--- ========== Elementos (compartidos por Tab) ==========
+-- ========== Elements (shared by every Tab) ==========
 local function AddElements(obj, container, theme)
     local registry = {}
     local query = ""
@@ -581,7 +581,7 @@ local function AddElements(obj, container, theme)
         end
     end
 
-    -- Búsqueda: registra cada elemento con su nombre
+    -- Search: registers each element with its name
     local function matches(entry)
         if query == "" then return true end
         if entry.header then return false end
@@ -595,7 +595,7 @@ local function AddElements(obj, container, theme)
         for _, e in ipairs(registry) do refresh(e) end
     end
 
-    -- Métodos comunes de todo elemento: SetVisible / Destroy
+    -- Methods shared by every element: SetVisible / Destroy
     local function deco(api, frame, name, header)
         local entry = { frame = frame, name = string.lower(tostring(name or "")), header = header, hidden = false }
         table.insert(registry, entry)
@@ -1093,7 +1093,7 @@ local function AddElements(obj, container, theme)
     end
 end
 
--- ========== API de Rayfield (Tab:CreateButton, CreateToggle, ...) ==========
+-- ========== Rayfield API (Tab:CreateButton, CreateToggle, ...) ==========
 local function KeyFromString(k, fallback)
     if typeof(k) == "EnumItem" then return k end
     if type(k) == "string" then
@@ -1126,7 +1126,7 @@ local function AddRayfieldAPI(tab)
         return W
     end
 
-    -- CreateLabel(Texto, Icono, Color, IgnorarTema)
+    -- CreateLabel(Text, Icon, Color, IgnoreTheme)
     function tab:CreateLabel(text, icon, color, ignoreTheme)
         local l = tab:AddLabel(text or "", typeof(color) == "Color3" and color or nil)
         local W = {}
@@ -1226,7 +1226,7 @@ local function AddRayfieldAPI(tab)
         return W
     end
 
-    -- CreateDropdown({ Name, Options, CurrentOption = {..}, MultipleOptions, Flag, Callback(tabla) })
+    -- CreateDropdown({ Name, Options, CurrentOption = {..}, MultipleOptions, Flag, Callback(table) })
     function tab:CreateDropdown(o)
         o = o or {}
         local multi = o.MultipleOptions == true
@@ -1308,7 +1308,7 @@ local function AddRayfieldAPI(tab)
     end
 end
 
--- ========== Notificaciones (animadas, por tipo) ==========
+-- ========== Notifications (animated, by type) ==========
 function PulseUI:SetNotifyPosition(pos)
     self.NotifyPosition = pos or "TopRight"
     if self._notifGui then pcall(function() self._notifGui:Destroy() end) end
@@ -1338,7 +1338,7 @@ function PulseUI:Notify(opts)
         self._notifGui, self._notifHolder, self._notifCount = gui, h, 0
     end
 
-    -- máximo 5 a la vez
+    -- at most 5 at a time
     local active = {}
     for _, c in ipairs(self._notifHolder:GetChildren()) do
         if c:IsA("Frame") then table.insert(active, c) end
@@ -1436,19 +1436,87 @@ local function Deserialize(v)
     return v
 end
 
-local function ConfigFile(name)
-    local folder = PulseUI.ConfigFolder
-    if folder and folder ~= "" then
-        if isfolder and makefolder then
-            local ok, exists = pcall(isfolder, folder)
-            if not (ok and exists) then pcall(makefolder, folder) end
-        end
-        return folder .. "/PulseUI_" .. name .. ".json"
-    end
-    return "PulseUI_" .. name .. ".json"
+-- ========== File system helpers (safe on every executor) ==========
+local FS = {}
+local fsWarned = {}
+
+local function WarnOnce(key, message)
+    if fsWarned[key] then return end
+    fsWarned[key] = true
+    warn("[PulseUI] " .. message)
 end
 
--- Texto estable de todos los flags (para detectar cambios en AutoSave)
+function FS.Read(path)
+    if typeof(readfile) ~= "function" then return nil end
+    local ok, res = pcall(readfile, path)
+    if ok and type(res) == "string" then return res end
+    return nil
+end
+
+function FS.Write(path, content)
+    if typeof(writefile) ~= "function" then
+        WarnOnce("nowrite", "Your executor does not support writefile, so SaveKey / SaveConfig can't work.")
+        return false
+    end
+    local ok, err = pcall(writefile, path, content)
+    if not ok then WarnOnce("write:" .. path, "Could not write '" .. path .. "': " .. tostring(err)) end
+    return ok
+end
+
+function FS.Delete(path)
+    if typeof(delfile) ~= "function" then return false end
+    return (pcall(delfile, path))
+end
+
+-- Makes sure a folder exists. Returns true when the folder can be used.
+function FS.EnsureFolder(folder)
+    if typeof(makefolder) ~= "function" then return false end
+    if typeof(isfolder) == "function" then
+        local ok, exists = pcall(isfolder, folder)
+        if ok and exists then return true end
+    end
+    pcall(makefolder, folder)
+    if typeof(isfolder) == "function" then
+        local ok, exists = pcall(isfolder, folder)
+        return (ok and exists) and true or false
+    end
+    return true -- can't verify it, assume it worked
+end
+
+-- If the path has a folder that can't be created, the "/" is replaced so the file is still written.
+function FS.SafePath(path)
+    local folder = string.match(path, "^(.*)[/\\][^/\\]*$")
+    if folder and folder ~= "" then
+        if FS.EnsureFolder(folder) then return path end
+        return (string.gsub(path, "[/\\]", "_"))
+    end
+    return path
+end
+
+local function CleanName(str)
+    return (string.gsub(tostring(str), "[^%w_%-]", ""))
+end
+
+local function SafeName(str)
+    return (string.gsub(tostring(str), "[/\\]", "_"))
+end
+
+-- Returns the main path and a fallback path (root of the workspace) for a config name.
+local function ConfigLocations(name)
+    name = SafeName(name)
+    local folder = PulseUI.ConfigFolder
+    if folder and folder ~= "" then
+        local rootFile = "PulseUI_" .. CleanName(folder) .. "_" .. name .. ".json"
+        if FS.EnsureFolder(folder) then
+            return folder .. "/PulseUI_" .. name .. ".json", rootFile
+        end
+        return rootFile, rootFile
+    end
+    local rootFile = "PulseUI_" .. name .. ".json"
+    return rootFile, rootFile
+end
+
+-- Stable text of every flag value (used by AutoSave to detect changes)
 function PulseUI:_Snapshot()
     local keys = {}
     for flag in pairs(self.Flags) do table.insert(keys, flag) end
@@ -1462,10 +1530,28 @@ function PulseUI:_Snapshot()
 end
 
 function PulseUI:SaveConfig(name, silent)
-    if not writefile then return false end
-    local data = {}
-    for flag, api in pairs(self.Flags) do data[flag] = Serialize(api:Get()) end
-    local ok = pcall(writefile, ConfigFile(name), HttpService:JSONEncode(data))
+    local data, count = {}, 0
+    for flag, api in pairs(self.Flags) do
+        local okGet, value = pcall(function() return api:Get() end)
+        if okGet and value ~= nil then
+            data[flag] = Serialize(value)
+            count = count + 1
+        end
+    end
+    if count == 0 then
+        WarnOnce("noflags", "There are no elements with a Flag, so there is nothing to save. Add Flag = \"name\" to the elements you want to save.")
+    end
+
+    local ok = false
+    local okEnc, json = pcall(function() return HttpService:JSONEncode(data) end)
+    if okEnc then
+        local primary, fallback = ConfigLocations(name)
+        ok = FS.Write(primary, json)
+        if not ok and fallback ~= primary then ok = FS.Write(fallback, json) end
+    else
+        warn("[PulseUI] Could not encode the config: " .. tostring(json))
+    end
+
     if self.AutoNotify and not silent then
         self:Notify({
             Title = L("cfg"), Content = ok and (L("cfg_saved") .. name) or L("cfg_save_fail"),
@@ -1482,13 +1568,22 @@ function PulseUI:LoadConfig(name, silent)
         end
         return false
     end
-    if not (readfile and isfile) then return fail() end
-    if not isfile(ConfigFile(name)) then return fail() end
-    local ok, data = pcall(function() return HttpService:JSONDecode(readfile(ConfigFile(name))) end)
-    if not ok then return fail() end
+    local primary, fallback = ConfigLocations(name)
+    local raw = FS.Read(primary)
+    if (not raw or raw == "") and fallback ~= primary then raw = FS.Read(fallback) end
+    if not raw or raw == "" then return fail() end
+
+    local ok, data = pcall(function() return HttpService:JSONDecode(raw) end)
+    if not ok or type(data) ~= "table" then
+        warn("[PulseUI] The config file '" .. name .. "' is corrupted.")
+        return fail()
+    end
     for flag, v in pairs(data) do
         local api = self.Flags[flag]
-        if api then api:Set(Deserialize(v)) end
+        if api then
+            local okSet, err = pcall(function() api:Set(Deserialize(v)) end)
+            if not okSet then warn("[PulseUI] Could not load the flag '" .. tostring(flag) .. "': " .. tostring(err)) end
+        end
     end
     if self.AutoNotify and not silent then
         self:Notify({ Title = L("cfg"), Content = L("cfg_loaded") .. name, Type = "Success", Theme = self._theme })
@@ -1497,24 +1592,39 @@ function PulseUI:LoadConfig(name, silent)
 end
 
 function PulseUI:DeleteConfig(name)
-    if not (delfile and isfile) or not isfile(ConfigFile(name)) then return false end
-    return (pcall(delfile, ConfigFile(name)))
+    local primary, fallback = ConfigLocations(name)
+    local a = FS.Delete(primary)
+    local b = (fallback ~= primary) and FS.Delete(fallback) or false
+    return a or b
 end
 
 function PulseUI:GetConfigs()
-    local out = {}
-    if not listfiles then return out end
-    local ok, files = pcall(listfiles, PulseUI.ConfigFolder or "")
-    if not ok then return out end
-    for _, path in ipairs(files) do
-        local n = string.match(path, "PulseUI_([^/\\]+)%.json$")
-        if n then table.insert(out, n) end
+    local out, seen = {}, {}
+    if typeof(listfiles) ~= "function" then return out end
+    local folder = PulseUI.ConfigFolder
+    local hasFolder = folder and folder ~= ""
+    local dirs = { { dir = "", prefix = "PulseUI_" .. (hasFolder and (CleanName(folder) .. "_") or "") } }
+    if hasFolder then table.insert(dirs, 1, { dir = folder, prefix = "PulseUI_" }) end
+    for _, d in ipairs(dirs) do
+        local ok, files = pcall(listfiles, d.dir)
+        if ok and type(files) == "table" then
+            for _, path in ipairs(files) do
+                local file = string.match(tostring(path), "([^/\\]+)$")
+                if file and string.sub(file, 1, #d.prefix) == d.prefix and string.sub(file, -5) == ".json" then
+                    local n = string.sub(file, #d.prefix + 1, -6)
+                    if n ~= "" and not seen[n] then
+                        seen[n] = true
+                        table.insert(out, n)
+                    end
+                end
+            end
+        end
     end
     table.sort(out)
     return out
 end
 
--- ========== Restricciones de acceso ==========
+-- ========== Access restrictions ==========
 local function CheckAccess(opts)
     if type(opts.AllowedPlaces) == "table" and #opts.AllowedPlaces > 0 then
         local ok = false
@@ -1544,7 +1654,7 @@ local function CheckAccess(opts)
     return true
 end
 
--- ========== Pantalla de carga ==========
+-- ========== Loading screen ==========
 function PulseUI:LoadingScreen(opts)
     opts = opts or {}
     ApplyStyle(opts)
@@ -1644,25 +1754,24 @@ end
 
 -- ========== KeySystem ==========
 function PulseUI:ClearSavedKey(fileName)
-    fileName = fileName or "PulseUI_Key.txt"
-    if not (delfile and isfile) or not isfile(fileName) then return false end
-    return (pcall(delfile, fileName))
+    fileName = FS.SafePath(fileName or "PulseUI_Key.txt")
+    return FS.Delete(fileName)
 end
 
 --[[
-    Normalmente se usa desde CreateWindow:  KeySystem = true, KeySettings = { ... }
+    Normally used from CreateWindow:  KeySystem = true, KeySettings = { ... }
     KeySettings: Title, Subtitle, Note,
-      Key = "a" | Key = { "a", "b" }  (también Keys y entradas sueltas), KeyUrl, Validate,
-      Copy = "texto"                   -- botón "Copiar" que copia ese texto (ej. la key)
-      KeyExpiry = { ["key"] = os.time{...} }   -- fecha límite absoluta por key
-      KeyDurations = { ["key"] = horas }       -- duración desde el primer uso (requiere SaveKey)
-      SaveDuration = horas                     -- duración por defecto de la key guardada
-      GetKeyLink = "url" | { {Text = "Discord", Link = "url"}, ... }  (también Links)
+      Key = "a" | Key = { "a", "b" }  (also Keys and loose entries), KeyUrl, Validate,
+      Copy = "text"                    -- "Copy" button that copies that text (e.g. the key)
+      KeyExpiry = { ["key"] = os.time{...} }   -- absolute expiry date per key
+      KeyDurations = { ["key"] = hours }       -- duration since first use (needs SaveKey)
+      SaveDuration = hours                     -- default duration of the saved key
+      GetKeyLink = "url" | { {Text = "Discord", Link = "url"}, ... }  (also Links)
       GetKeyText, SaveKey, FileName, RGBBorder(s), RGBColors, MaxAttempts,
-      LockTime (segundos de bloqueo al agotar intentos), KickOnFail, KickMessage,
+      LockTime (seconds locked when attempts run out), KickOnFail, KickMessage,
       Placeholder, VerifyText, Width, AllowClose, Notify, StopScript,
       OnSuccess, OnFail, OnClose
-    Devuelve true si la key fue correcta (la función espera a que el usuario termine).
+    Returns true if the key was correct (the function waits until the user is done).
 ]]
 function PulseUI:KeySystem(opts)
     opts = opts or {}
@@ -1671,11 +1780,11 @@ function PulseUI:KeySystem(opts)
 
     local theme = BuildTheme(opts.Theme, opts.CustomTheme)
 
-    local fileName = opts.FileName or "PulseUI_Key.txt"
+    local fileName = FS.SafePath(opts.FileName or "PulseUI_Key.txt")
     local notify = opts.Notify ~= false
-    local rgbBorder = opts.RGBBorder or opts.RGBBorders -- se aceptan ambos nombres
+    local rgbBorder = opts.RGBBorder or opts.RGBBorders -- both names are accepted
 
-    -- Keys: Key = "a" | Keys = "a" | Keys = { "a", "b" } | y también entradas sueltas { "a", "b" }
+    -- Keys: Key = "a" | Keys = "a" | Keys = { "a", "b" } | or loose entries { "a", "b" }
     local keys = {}
     local function addKeys(v)
         if type(v) == "string" or type(v) == "number" then
@@ -1686,10 +1795,10 @@ function PulseUI:KeySystem(opts)
             end
         end
     end
-    addKeys(opts.Key)   -- Key = "a"  o  Key = { "a", "b" }
-    addKeys(opts.Keys)  -- Keys = "a"  o  Keys = { "a", "b" }
-    addKeys(opts)       -- entradas sueltas
-    -- KeyUrl: link(s) RAW con keys (una por línea). Rayfield: GrabKeyFromSite = true -> las Keys son links.
+    addKeys(opts.Key)   -- Key = "a"  or  Key = { "a", "b" }
+    addKeys(opts.Keys)  -- Keys = "a"  or  Keys = { "a", "b" }
+    addKeys(opts)       -- loose entries
+    -- KeyUrl: RAW link(s) with keys (one per line). Rayfield: GrabKeyFromSite = true -> the Keys are links.
     local urls = {}
     local function addUrls(v)
         if type(v) == "string" then
@@ -1706,10 +1815,10 @@ function PulseUI:KeySystem(opts)
         keys = {}
     end
     if #keys == 0 and #urls == 0 and type(opts.Validate) ~= "function" then
-        warn("[PulseUI] KeySystem sin keys configuradas (usa Key, KeyUrl o Validate)")
+        warn("[PulseUI] KeySystem has no keys configured (use Key, KeyUrl or Validate)")
     end
 
-    -- Links para obtener la key (uno o varios)
+    -- Links to get the key (one or several)
     local links = {}
     local function addLink(l, defaultText)
         if type(l) == "string" or type(l) == "number" then
@@ -1728,7 +1837,7 @@ function PulseUI:KeySystem(opts)
     if type(opts.Links) == "table" then
         for _, l in ipairs(opts.Links) do addLink(l, defaultLinkText) end
     end
-    -- Copy = "2026"  ->  botón "Copiar" que copia ese texto al portapapeles
+    -- Copy = "2026"  ->  a "Copy" button that copies that text to the clipboard
     local copyText = opts.CopyText or L("key_copy")
     if type(opts.Copy) == "table" and opts.Copy.Text == nil and opts.Copy.Value == nil and opts.Copy.Link == nil then
         for _, c in ipairs(opts.Copy) do addLink(c, copyText) end
@@ -1736,7 +1845,7 @@ function PulseUI:KeySystem(opts)
         addLink(opts.Copy, copyText)
     end
 
-    -- Devuelve ok, motivo ("expired")
+    -- Returns ok, reason ("expired")
     local function check(input)
         input = Trim(input)
         if input == "" then return false end
@@ -1767,11 +1876,14 @@ function PulseUI:KeySystem(opts)
         return true
     end
 
-    -- Key guardada de una sesión anterior
+    -- Saved key from a previous session
     local startStatus
-    if opts.SaveKey and readfile and isfile and isfile(fileName) then
-        local ok, raw = pcall(readfile, fileName)
-        if ok and raw then
+    if opts.SaveKey then
+        if typeof(readfile) ~= "function" or typeof(writefile) ~= "function" then
+            WarnOnce("nokeyfs", "Your executor does not support readfile/writefile, so SaveKey can't work.")
+        end
+        local raw = FS.Read(fileName)
+        if raw and raw ~= "" then
             local savedKey, savedTime = raw, nil
             local okj, data = pcall(function() return HttpService:JSONDecode(raw) end)
             if okj and type(data) == "table" and data.key then savedKey, savedTime = data.key, data.time end
@@ -1819,7 +1931,7 @@ function PulseUI:KeySystem(opts)
     Make("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }, panel)
     local pScale = Make("UIScale", { Scale = 1 }, panel)
 
-    -- Borde (RGB opcional)
+    -- Border (optional RGB)
     local stroke = Make("UIStroke", {
         Thickness = opts.BorderThickness or 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
         Color = rgbBorder and Color3.new(1, 1, 1) or theme.Accent,
@@ -1833,7 +1945,7 @@ function PulseUI:KeySystem(opts)
         end)
     end
 
-    -- Cabecera: título + subtítulo + X
+    -- Header: title + subtitle + X
     local header = Make("Frame", {
         Size = UDim2.new(1, 0, 0, hasSub and 40 or 24), BackgroundTransparency = 1, LayoutOrder = 1,
     }, panel)
@@ -1862,7 +1974,7 @@ function PulseUI:KeySystem(opts)
         closeBtn.MouseLeave:Connect(function() Tween(closeBtn, { BackgroundColor3 = theme.Element }, 0.15) end)
     end
 
-    -- Nota (opcional)
+    -- Note (optional)
     if hasNote then
         local noteBox = Make("Frame", {
             Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
@@ -1883,7 +1995,7 @@ function PulseUI:KeySystem(opts)
         }, noteBox)
     end
 
-    -- Caja de la key
+    -- Key box
     local box = Make("TextBox", {
         Size = UDim2.new(1, 0, 0, 38), BackgroundColor3 = theme.Element, BorderSizePixel = 0,
         Text = "", PlaceholderText = opts.Placeholder or L("key_placeholder"),
@@ -1906,7 +2018,7 @@ function PulseUI:KeySystem(opts)
     end
     if startStatus then setStatus(startStatus, red) end
 
-    -- Botones: Verificar (fila 1) + links (fila 2)
+    -- Buttons: Verify (row 1) + links (row 2)
     local function buttonRow(order)
         local row = Make("Frame", { Size = UDim2.new(1, 0, 0, 36), BackgroundTransparency = 1, LayoutOrder = order }, panel)
         Make("UIListLayout", {
@@ -1935,7 +2047,7 @@ function PulseUI:KeySystem(opts)
         end
     end
 
-    -- Lógica
+    -- Logic
     local done, result, busy, locked, attempts = false, false, false, false, 0
 
     local function finish(res)
@@ -1988,8 +2100,8 @@ function PulseUI:KeySystem(opts)
             if ok then
                 setStatus(L("key_ok"), green)
                 if not rgbBorder then Tween(stroke, { Color = green, Transparency = 0 }, 0.2) end
-                if opts.SaveKey and writefile then
-                    pcall(writefile, fileName, HttpService:JSONEncode({ key = Trim(input), time = os.time() }))
+                if opts.SaveKey then
+                    FS.Write(fileName, HttpService:JSONEncode({ key = Trim(input), time = os.time() }))
                 end
                 if notify then
                     self:Notify({ Title = L("key_title"), Content = L("key_granted"), Type = "Success", Theme = theme, Duration = 3 })
@@ -2061,21 +2173,21 @@ function PulseUI:KeySystem(opts)
         end)
     end
 
-    -- Animación de entrada
+    -- Intro animation
     if self.Animations then
         pScale.Scale = 0.8
         Tween(pScale, { Scale = 1 }, 0.45, Enum.EasingStyle.Back)
     end
     Tween(backdrop, { BackgroundTransparency = opts.BackdropTransparency or 0.35 }, 0.3)
 
-    -- Espera a que el usuario termine
+    -- Waits until the user is done
     repeat task.wait() until done
     return result
 end
 
--- ========== Opciones de CreateWindow: nombres alternativos ==========
+-- ========== CreateWindow options: alternative names ==========
 -- Name = Title | RGBBorders = RGBBorder | SaveConfig = AutoSave + AutoLoad
--- LoadingTitle / LoadingSubtitle / LoadingDuration = pantalla de carga | Keysystem / Keysettings
+-- LoadingTitle / LoadingSubtitle / LoadingDuration = loading screen | Keysystem / Keysettings
 local function NormalizeWindowOpts(raw)
     local o = {}
     for k, v in pairs(raw or {}) do o[k] = v end
@@ -2085,8 +2197,8 @@ local function NormalizeWindowOpts(raw)
     if o.KeySystem == nil then o.KeySystem = o.Keysystem end
     if o.KeySettings == nil then o.KeySettings = o.Keysettings end
 
-    -- SaveConfig = true  ->  guarda y carga los ajustes automáticamente
-    -- (también acepta una tabla: SaveConfig = { Name = "mi-config", Interval = 5 })
+    -- SaveConfig = true  ->  saves and loads the settings automatically
+    -- (also accepts a table: SaveConfig = { Name = "my-config", Interval = 5 })
     local sc = o.SaveConfig
     if sc ~= nil and sc ~= false then
         if type(sc) == "table" then
@@ -2097,7 +2209,7 @@ local function NormalizeWindowOpts(raw)
         if o.AutoLoad == nil then o.AutoLoad = true end
     end
 
-    -- ===== Opciones de Rayfield =====
+    -- ===== Rayfield options =====
     -- ToggleUIKeybind = "K" | Enum.KeyCode.K
     if o.ToggleKey == nil and o.ToggleUIKeybind ~= nil then
         local k = o.ToggleUIKeybind
@@ -2108,14 +2220,14 @@ local function NormalizeWindowOpts(raw)
             if ok and v then o.ToggleKey = v end
         end
     end
-    -- ShowText = texto del botón flotante
+    -- ShowText = text of the floating button
     if o.ShowText ~= nil then
         local b = {}
         for k, v in pairs(o.Button or {}) do b[k] = v end
         if b.Text == nil then b.Text = tostring(o.ShowText) end
         o.Button = b
     end
-    -- ConfigurationSaving = { Enabled, FolderName, FileName }  (se carga con LoadConfiguration())
+    -- ConfigurationSaving = { Enabled, FolderName, FileName }  (loaded with LoadConfiguration())
     local cs = o.ConfigurationSaving
     if type(cs) == "table" and cs.Enabled then
         if o.AutoSave == nil then o.AutoSave = true end
@@ -2124,14 +2236,14 @@ local function NormalizeWindowOpts(raw)
         if o.ConfigFolder == nil then o.ConfigFolder = cs.FolderName end
     end
 
-    -- LoadingTitle / LoadingSubtitle activan la pantalla de carga
+    -- LoadingTitle / LoadingSubtitle turn on the loading screen
     if o.LoadingScreen == nil and (o.LoadingTitle ~= nil or o.LoadingSubtitle ~= nil or o.LoadingDuration ~= nil) then
         o.LoadingScreen = { Title = o.LoadingTitle, Subtitle = o.LoadingSubtitle, Duration = o.LoadingDuration }
     end
     return o
 end
 
--- ========== Ventana ==========
+-- ========== Window ==========
 function PulseUI:CreateWindow(opts)
     opts = NormalizeWindowOpts(opts)
     ApplyStyle(opts)
@@ -2149,7 +2261,7 @@ function PulseUI:CreateWindow(opts)
     local winTitle = opts.Title or "PulseUI"
     local cleanTitle = (string.gsub(winTitle, "[^%w_]", ""))
 
-    -- 1) Restricciones: lugares y usuarios
+    -- 1) Restrictions: places and users
     local allowed, deniedReason = CheckAccess(opts)
     if not allowed then
         self:Notify({ Title = L("denied"), Content = deniedReason, Type = "Error", Duration = 6 })
@@ -2158,11 +2270,11 @@ function PulseUI:CreateWindow(opts)
         error("[PulseUI] " .. L("denied") .. ": " .. deniedReason, 0)
     end
 
-    -- 2) Key System integrado: se muestra antes de crear la ventana
+    -- 2) Built-in Key System: shown before the window is created
     local usedKeySettings
     if opts.KeySystem or opts.Keysystem then
         local ks = {}
-        for k, v in pairs(opts.KeySettings or opts.Keysettings or {}) do ks[k] = v end -- copia (incluye keys sueltas)
+        for k, v in pairs(opts.KeySettings or opts.Keysettings or {}) do ks[k] = v end -- copy (includes loose keys)
         if ks.Title == nil or ks.Title == "" then ks.Title = winTitle .. ": Key System" end
         if ks.Subtitle == nil or ks.Subtitle == "" then ks.Subtitle = "Key System" end
         if ks.Theme == nil then ks.Theme = opts.Theme end
@@ -2179,11 +2291,11 @@ function PulseUI:CreateWindow(opts)
         local granted = self:KeySystem(ks)
         if not granted then
             if ks.StopScript == false then return nil end
-            error("[PulseUI] Key System: " .. L("denied"), 0) -- detiene el script
+            error("[PulseUI] Key System: " .. L("denied"), 0) -- stops the script
         end
     end
 
-    -- 3) Pantalla de carga
+    -- 3) Loading screen
     if opts.LoadingScreen then
         local ls = {}
         if type(opts.LoadingScreen) == "table" then
@@ -2227,7 +2339,7 @@ function PulseUI:CreateWindow(opts)
     Round(main, cr)
     local mainScale = Make("UIScale", { Scale = userScale }, main)
 
-    -- Barra superior (redondeada arriba, recta abajo)
+    -- Top bar (rounded on top, flat at the bottom)
     local top = Make("Frame", {
         Size = UDim2.new(1, 0, 0, topH), BackgroundColor3 = theme.Top, BorderSizePixel = 0,
     }, main)
@@ -2282,14 +2394,14 @@ function PulseUI:CreateWindow(opts)
     local minBtn, closeBtn = topBtn("-", -66), topBtn("X", -34)
     if opts.Draggable ~= false then Draggable(top, main) end
 
-    -- Perfil (foto + nombre) opcional
+    -- Profile (photo + name), optional
     local profile = opts.Profile
     local hasProfile = profile ~= nil and profile ~= false
     local pInfo = type(profile) == "table" and profile or {}
     local pUserId = pInfo.UserId or LP.UserId
     local pImage = pInfo.Image or ("rbxthumb://type=AvatarHeadShot&id=" .. tostring(pUserId) .. "&w=150&h=150")
 
-    -- Barra lateral (modo Left) o barra de pestañas superior (modo Top)
+    -- Sidebar (Left mode) or top tab bar (Top mode)
     local sbW = (tabMode == "Left") and (hasProfile and 130 or 110) or 0
 
     local sidebar = Make("Frame", {
@@ -2376,7 +2488,7 @@ function PulseUI:CreateWindow(opts)
         BackgroundTransparency = 1, ClipsDescendants = true,
     }, main)
 
-    -- Recalcula las posiciones (barra superior, pestañas y páginas)
+    -- Recalculates the positions (top bar, tabs and pages)
     local function layoutTop()
         topH = hasSub and 40 or 34
         top.Size = UDim2.new(1, 0, 0, topH)
@@ -2398,7 +2510,7 @@ function PulseUI:CreateWindow(opts)
     end
     layoutTop()
 
-    -- Borde RGB opcional
+    -- Optional RGB border
     local stroke = Make("UIStroke", {
         Thickness = opts.BorderThickness or 2, Color = Color3.new(1, 1, 1),
         ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Enabled = false,
@@ -2407,7 +2519,7 @@ function PulseUI:CreateWindow(opts)
     local rgbOn = false
     local rgbSpeed = opts.RGBSpeed or 120
 
-    -- Botón flotante "UI" (fijo, RGB y colores opcionales)
+    -- Floating "UI" button (fixed, optional RGB and colors)
     local bo = opts.Button or {}
     local bSize = bo.Size or 44
     local bBase = bo.Color or theme.Accent
@@ -2431,7 +2543,7 @@ function PulseUI:CreateWindow(opts)
     local btnSpeed = bo.Speed or 120
     local btnT = 0
 
-    -- Watermark (texto fijo en pantalla)
+    -- Watermark (fixed on-screen text)
     local wmPositions = {
         TopLeft = { Vector2.new(0, 0), UDim2.new(0, 10, 0, 8) },
         TopCenter = { Vector2.new(0.5, 0), UDim2.new(0.5, 0, 0, 8) },
@@ -2456,7 +2568,7 @@ function PulseUI:CreateWindow(opts)
         Text = wmText, TextColor3 = theme.Text, Font = Fonts.Medium, TextSize = TS(11),
     }, wmFrame)
 
-    -- Stats HUD (FPS / Ping / hora)
+    -- Stats HUD (FPS / Ping / time)
     local statsOn = false
     local statsFrame = Make("Frame", {
         Size = UDim2.new(0, 0, 0, 26), AutomaticSize = Enum.AutomaticSize.X,
@@ -2472,7 +2584,7 @@ function PulseUI:CreateWindow(opts)
     }, statsFrame)
     local statsAcc = 0
 
-    -- Un solo bucle de animación para borde, botón y stats
+    -- A single animation loop for the border, button and stats
     Connect(RunService.RenderStepped, function(dt)
         if rgbOn then grad.Rotation = (grad.Rotation + dt * rgbSpeed) % 360 end
         if btnRGB or btnFill then
@@ -2492,12 +2604,12 @@ function PulseUI:CreateWindow(opts)
 
     local window = {
         Gui = gui, Tabs = {}, _visible = true, ConfigName = opts.ConfigName or cleanTitle,
-        KeySettings = usedKeySettings, -- settings usados por el Key System (nil si no se usó)
+        KeySettings = usedKeySettings, -- settings used by the Key System (nil if it wasn't used)
     }
     local minimized = false
     local toggleKey = opts.ToggleKey
 
-    -- ----- Blur de fondo (opcional) -----
+    -- ----- Background blur (optional) -----
     local blurEffect
     local blurSize = 0
     if opts.Blur then blurSize = type(opts.Blur) == "number" and opts.Blur or 16 end
@@ -2512,7 +2624,7 @@ function PulseUI:CreateWindow(opts)
         Tween(blurEffect, { Size = visible and blurSize or 0 }, 0.35)
     end
 
-    -- ----- Redimensionar (opcional) -----
+    -- ----- Resizing (optional) -----
     local resizeHandle
     if opts.Resizable then
         local minSize = opts.MinSize or Vector2.new(340, 220)
@@ -2543,7 +2655,7 @@ function PulseUI:CreateWindow(opts)
                 local dw, dh = newW - sizeW, newH - sizeH
                 sizeW, sizeH = newW, newH
                 main.Size = UDim2.new(0, sizeW, 0, sizeH)
-                -- mantiene fija la esquina superior izquierda (la ventana está anclada al centro)
+                -- keeps the top-left corner fixed (the window is anchored at its center)
                 main.Position = main.Position + UDim2.new(0, dw / 2 * s, 0, dh / 2 * s)
             end
         end)
@@ -2552,7 +2664,7 @@ function PulseUI:CreateWindow(opts)
         end)
     end
 
-    -- ----- Mostrar / ocultar con animación -----
+    -- ----- Show / hide with animation -----
     function window:Toggle(state)
         if state == nil then state = not self._visible end
         if state == self._visible then return end
@@ -2588,7 +2700,7 @@ function PulseUI:CreateWindow(opts)
     function window:Minimize(state)
         if state == nil then state = not minimized end
         minimized = state
-        applyBlur(window._visible and not state) -- sin blur mientras está minimizada
+        applyBlur(window._visible and not state) -- no blur while minimized
         local newH = state and topH or sizeH
         local curH = main.Size.Y.Offset
         Tween(main, {
@@ -2605,7 +2717,7 @@ function PulseUI:CreateWindow(opts)
     end
 
     function window:Destroy()
-        if window._autoSaveStop then window._autoSaveStop() end
+        if window._autoSaveStop then window._autoSaveStop(true) end
         if blurEffect then pcall(function() blurEffect:Destroy() end) end
         gui:Destroy()
     end
@@ -2646,7 +2758,7 @@ function PulseUI:CreateWindow(opts)
         if window._visible and not minimized then applyBlur(true) end
     end
 
-    -- Transparencia de la ventana (0 = opaca). Con transparencia se ocultan los rellenos de esquinas.
+    -- Window transparency (0 = opaque). With transparency the corner fillers are hidden.
     function window:SetTransparency(t)
         transparency = math.clamp(tonumber(t) or 0, 0, 0.85)
         main.BackgroundTransparency = transparency
@@ -2699,7 +2811,7 @@ function PulseUI:CreateWindow(opts)
         end
     end
 
-    -- ----- Diálogo animado: Window:Dialog({Title, Content, Buttons = {{Text, Callback}}}) -----
+    -- ----- Animated dialog: Window:Dialog({Title, Content, Buttons = {{Text, Callback}}}) -----
     function window:Dialog(d)
         d = d or {}
         if window._activeDialog then return window._activeDialog end
@@ -2771,14 +2883,14 @@ function PulseUI:CreateWindow(opts)
         return handle
     end
 
-    -- ----- Cierre con confirmación -----
+    -- ----- Close with confirmation -----
     local confirmClose = opts.ConfirmClose ~= false
-    local closeAction = opts.CloseAction or "Hide" -- "Hide" oculta el menú, "Destroy" lo descarga
+    local closeAction = opts.CloseAction or "Hide" -- "Hide" hides the menu, "Destroy" unloads it
     local function doClose()
         if closeAction == "Destroy" then PulseUI:Destroy() else window:Toggle(false) end
     end
     function window:SetConfirmClose(state) confirmClose = state and true or false end
-    function window:Close(force) -- pide confirmación salvo que force = true
+    function window:Close(force) -- asks for confirmation unless force = true
         if force or not confirmClose then
             doClose()
             return
@@ -2790,7 +2902,7 @@ function PulseUI:CreateWindow(opts)
         })
     end
 
-    -- ----- Eventos de la ventana -----
+    -- ----- Window events -----
     Connect(float.MouseButton1Click, function()
         PlaySfx("Click")
         floatScale.Scale = 0.85
@@ -2809,13 +2921,13 @@ function PulseUI:CreateWindow(opts)
         if not gp and toggleKey and i.KeyCode == toggleKey then window:Toggle() end
     end)
 
-    -- ----- Pestañas (con ícono opcional y búsqueda opcional) -----
+    -- ----- Tabs (optional icon and optional search) -----
     function window:AddTab(name, icon)
         local imageIcon = icon and (tonumber(icon) ~= nil or string.find(tostring(icon), "rbx") ~= nil)
         local textIcon = (icon and not imageIcon) and tostring(icon) or nil
         local isTop = tabMode == "Top"
 
-        -- El UIPadding mueve a los hijos: el ícono se coloca con offset negativo para quedar al borde izquierdo.
+        -- UIPadding shifts the children: the icon uses a negative offset to stay at the left edge.
         local padLeft
         if isTop then
             padLeft = 12 + (imageIcon and 22 or 0)
@@ -2830,7 +2942,7 @@ function PulseUI:CreateWindow(opts)
             Text = (textIcon and (textIcon .. " ") or "") .. name, TextColor3 = theme.SubText,
             Font = Fonts.Medium, TextSize = TS(13), AutoButtonColor = false,
             TextXAlignment = isTop and Enum.TextXAlignment.Center or Enum.TextXAlignment.Left,
-            TextScaled = not isTop, -- en modo Left el nombre se encoge para que quepa completo
+            TextScaled = not isTop, -- in Left mode the name shrinks so it fits completely
             LayoutOrder = #window.Tabs + 1,
         }, tabBar)
         Round(btn, 8)
@@ -2906,7 +3018,7 @@ function PulseUI:CreateWindow(opts)
         return tab
     end
 
-    -- Rayfield: Window:CreateTab(Nombre, Icono)  (Icono = número de imagen; los íconos Lucide se ignoran)
+    -- Rayfield: Window:CreateTab(Name, Icon)  (Icon = image number; Lucide icons are ignored)
     function window:CreateTab(name, icon)
         local ic
         if type(icon) == "number" and icon ~= 0 then
@@ -2938,7 +3050,7 @@ function PulseUI:CreateWindow(opts)
     end
 
     function window:ModifyTheme()
-        warn("[PulseUI] ModifyTheme no se puede usar en tiempo real: usa Theme / CustomTheme en CreateWindow")
+        warn("[PulseUI] ModifyTheme can't be used at runtime: use Theme / CustomTheme in CreateWindow")
     end
 
     function window:Select(name)
@@ -2948,14 +3060,14 @@ function PulseUI:CreateWindow(opts)
         return false
     end
 
-    -- ----- Opciones iniciales -----
+    -- ----- Initial options -----
     window:SetTransparency(opts.Transparency or 0)
     window:SetRGBBorder(opts.RGBBorder == true)
     window:SetButtonRGB(bo.RGB == true)
     window:SetButtonFill(bo.Fill == true)
     if opts.Stats then window:SetStats(true) end
 
-    -- ----- Animación de entrada / estado inicial -----
+    -- ----- Intro animation / initial state -----
     if opts.StartHidden then
         window._visible = false
         main.Visible = false
@@ -2972,7 +3084,7 @@ function PulseUI:CreateWindow(opts)
         end
     end
 
-    -- ----- Mensaje de bienvenida -----
+    -- ----- Welcome message -----
     if opts.WelcomeMessage then
         local w = opts.WelcomeMessage
         local n = { Title = winTitle, Type = "Success", Duration = 4, Theme = theme }
@@ -2986,17 +3098,13 @@ function PulseUI:CreateWindow(opts)
         task.delay(0.7, function() self:Notify(n) end)
     end
 
-    -- ----- Invitación a Discord (Rayfield: Discord = { Enabled, Invite, RememberJoins }) -----
+    -- ----- Discord invite (Rayfield: Discord = { Enabled, Invite, RememberJoins }) -----
     local dc = opts.Discord
     if type(dc) == "table" and dc.Enabled and type(dc.Invite) == "string"
         and dc.Invite ~= "" and dc.Invite ~= "noinvitelink" then
         local remember = dc.RememberJoins ~= false
         local flagFile = "PulseUI_Discord_" .. (string.gsub(dc.Invite, "[^%w_]", "")) .. ".txt"
-        local seen = false
-        if remember and isfile then
-            local ok, r = pcall(isfile, flagFile)
-            seen = (ok and r) and true or false
-        end
+        local seen = remember and FS.Read(flagFile) ~= nil
         if not seen then
             task.delay(1.5, function()
                 if not window.Gui.Parent then return end
@@ -3005,7 +3113,7 @@ function PulseUI:CreateWindow(opts)
                     Buttons = {
                         { Text = L("discord_copy"), Callback = function()
                             local copied = Utils.Copy("https://discord.gg/" .. dc.Invite)
-                            if remember and writefile then pcall(writefile, flagFile, "1") end
+                            if remember then FS.Write(flagFile, "1") end
                             PulseUI:Notify({
                                 Title = "Discord", Type = "Success", Theme = theme, Duration = 4,
                                 Content = copied and L("key_copied") or ("discord.gg/" .. dc.Invite),
@@ -3018,23 +3126,34 @@ function PulseUI:CreateWindow(opts)
         end
     end
 
-    -- ----- Config automática (AutoLoad / AutoSave) -----
+    -- ----- Automatic config (AutoLoad / AutoSave) -----
     local cfgName = window.ConfigName
     local loadDelay = opts.AutoLoadDelay or 0.6
     if opts.AutoLoad then
         task.spawn(function()
-            task.wait(loadDelay) -- espera a que el script cree sus elementos
+            task.wait(loadDelay) -- waits until the script has created its elements
             PulseUI:LoadConfig(cfgName, true)
         end)
     end
     if opts.AutoSave then
-        local alive = true
-        window._autoSaveStop = function() alive = false end
+        local alive, ready = true, false
+        window._autoSaveStop = function(final)
+            if not alive then return end
+            alive = false
+            -- last save when the window closes (only after the config was loaded, so defaults never overwrite it)
+            if final and ready then PulseUI:SaveConfig(cfgName, true) end
+        end
         task.spawn(function()
             task.wait(loadDelay + 0.8)
             local last = PulseUI:_Snapshot()
+            ready = true
+            -- first run: create the file right away so it exists
+            local primary, fallback = ConfigLocations(cfgName)
+            if FS.Read(primary) == nil and FS.Read(fallback) == nil then
+                PulseUI:SaveConfig(cfgName, true)
+            end
             while alive do
-                task.wait(opts.AutoSaveInterval or 3)
+                task.wait(opts.AutoSaveInterval or 2)
                 if not alive then break end
                 local cur = PulseUI:_Snapshot()
                 if cur ~= last then
@@ -3059,7 +3178,7 @@ function PulseUI:Destroy()
     self._notifGui, self._notifHolder = nil, nil
 end
 
--- ========== API de Rayfield (nivel librería) ==========
+-- ========== Rayfield API (library level) ==========
 function PulseUI:LoadConfiguration()
     local w = self.Windows[#self.Windows]
     if w then return self:LoadConfig(w.ConfigName, true) end
