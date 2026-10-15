@@ -1,5 +1,5 @@
 --[[
-    PulseUI  v4.4  -  UI library for Roblox (mobile and PC)
+    PulseUI  v4.5  -  UI library for Roblox (mobile and PC)
 
     Elements:  Section, Label, Paragraph, Divider, Button, Toggle, Slider, Dropdown,
                TextBox, Keybind, ColorPicker  (+ optional search on every tab)
@@ -7,7 +7,7 @@
                SaveConfig (saves and loads on its own), Version, Watermark, Position, Resizable,
                Draggable, Transparency, Blur, TabPosition (Left/Top), tab icons, Font, TextScale,
                Sounds, Language, StartMinimized, StartHidden, Stats, LoadingScreen, WelcomeMessage,
-               AutoSave/AutoLoad, ConfirmClose, Profile, RGB border, RGB UI button,
+               AutoSave/AutoLoad, SaveNotify (gear notification), ConfirmClose, Profile, RGB border, RGB UI button,
                AllowedPlaces/AllowedUsers/BlockedUsers
     KeySystem: built into CreateWindow (KeySystem = true, KeySettings = {...}) with note,
                Copy button, several links, key expiry, temporary lock, kick and saved key
@@ -29,12 +29,13 @@ local SoundService = game:GetService("SoundService")
 local CoreGui = game:GetService("CoreGui")
 
 local PulseUI = {
-    Version = "4.4",
+    Version = "4.5",
     Flags = {},
     Windows = {},
     Utils = {},
     AutoNotify = false,          -- notifications on every element (optional)
     Animations = true,           -- animations enabled
+    SaveNotify = true,           -- gear notification when the config / key is saved
     NotifyPosition = "TopRight", -- TopRight / BottomRight / TopLeft / BottomLeft
     Language = "EN",             -- EN / ES (Spanish is an optional language pack)
     Sounds = {
@@ -138,6 +139,7 @@ local NotifyTypes = {
     Success = { Color = Color3.fromRGB(60, 200, 110), Icon = "✓" },
     Warning = { Color = Color3.fromRGB(255, 180, 60), Icon = "!" },
     Error = { Color = Color3.fromRGB(235, 70, 70), Icon = "✕" },
+    Save = { Gear = true }, -- gear icon, uses the theme accent color
 }
 
 local Rainbow = {
@@ -170,7 +172,9 @@ local Strings = {
         key_copied = "Copiado al portapapeles", key_copied_short = "Copiado", key_copy = "Copiar",
         discord_title = "Discord", discord_text = "¡Únete a nuestro servidor de Discord!",
         discord_copy = "Copiar invitación", discord_later = "Luego",
-        key_expired = "Tu key expiró", key_locked = "Bloqueado: %ds",
+        key_expired = "Tu key expiró",
+        cfg_saved_title = "Configuración guardada", cfg_saved_text = "Tus ajustes se guardaron.",
+        key_saved_title = "Key guardada", key_saved_text = "No se te volverá a pedir.", key_locked = "Bloqueado: %ds",
         key_kick = "Demasiados intentos con una key incorrecta",
     },
     EN = {
@@ -196,7 +200,9 @@ local Strings = {
         key_copied = "Copied to clipboard", key_copied_short = "Copied", key_copy = "Copy",
         discord_title = "Discord", discord_text = "Join our Discord server!",
         discord_copy = "Copy invite", discord_later = "Later",
-        key_expired = "Your key expired", key_locked = "Locked: %ds",
+        key_expired = "Your key expired",
+        cfg_saved_title = "Config saved", cfg_saved_text = "Your settings were saved.",
+        key_saved_title = "Key saved", key_saved_text = "You won't be asked for it again.", key_locked = "Locked: %ds",
         key_kick = "Too many attempts with a wrong key",
     },
 }
@@ -1309,6 +1315,31 @@ local function AddRayfieldAPI(tab)
 end
 
 -- ========== Notifications (animated, by type) ==========
+-- Gear icon built with UI pieces (no font or image needed)
+local function DrawGear(parent, holeColor)
+    local holder = Make("Frame", {
+        Size = UDim2.new(0, 20, 0, 20), Position = UDim2.new(0.5, -10, 0.5, -10), BackgroundTransparency = 1,
+    }, parent)
+    for _, rot in ipairs({ 0, 45, 90, 135 }) do
+        local tooth = Make("Frame", {
+            Size = UDim2.new(0, 4, 0, 20), AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.new(0.5, 0, 0.5, 0), Rotation = rot,
+            BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0,
+        }, holder)
+        Round(tooth, 1)
+    end
+    local ring = Make("Frame", {
+        Size = UDim2.new(0, 14, 0, 14), AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.new(0.5, 0, 0.5, 0), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0,
+    }, holder)
+    Round(ring, 7)
+    local hole = Make("Frame", {
+        Size = UDim2.new(0, 6, 0, 6), AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.new(0.5, 0, 0.5, 0), BackgroundColor3 = holeColor, BorderSizePixel = 0,
+    }, holder)
+    Round(hole, 3)
+end
+
 function PulseUI:SetNotifyPosition(pos)
     self.NotifyPosition = pos or "TopRight"
     if self._notifGui then pcall(function() self._notifGui:Destroy() end) end
@@ -1368,7 +1399,9 @@ function PulseUI:Notify(opts)
     }, card)
     Round(iconBg, 15)
     local notifImage = NormalizeImage(opts.Image)
-    if notifImage then
+    if style and style.Gear then
+        DrawGear(iconBg, accent)
+    elseif notifImage then
         Make("ImageLabel", {
             Size = UDim2.new(0, 20, 0, 20), Position = UDim2.new(0.5, -10, 0.5, -10),
             BackgroundTransparency = 1, Image = notifImage,
@@ -1440,44 +1473,105 @@ end
 local FS = {}
 local fsWarned = {}
 
-local function WarnOnce(key, message)
-    if fsWarned[key] then return end
-    fsWarned[key] = true
-    warn("[PulseUI] " .. message)
+-- Finds an executor function by name without depending on its Lua type (some executors wrap them).
+local function Fn(name)
+    local ok, env = pcall(function() return getgenv and getgenv() end)
+    if ok and type(env) == "table" then
+        local v = env[name]
+        if v ~= nil then return v end
+    end
+    local ok2, v2 = pcall(function() return getfenv()[name] end)
+    if ok2 and v2 ~= nil then return v2 end
+    return nil
 end
 
-function FS.Read(path)
-    if typeof(readfile) ~= "function" then return nil end
-    local ok, res = pcall(readfile, path)
+-- Memory copy of everything that is written. If the executor can't write files, the settings
+-- still survive re-executing the script until Roblox is closed.
+local function Memory()
+    local ok, env = pcall(function() return getgenv and getgenv() end)
+    local root = (ok and type(env) == "table") and env or shared
+    if type(root.__PulseUI_Storage) ~= "table" then root.__PulseUI_Storage = {} end
+    return root.__PulseUI_Storage
+end
+
+-- Warning in the console AND a short on-screen notification (mobile players can't see the console).
+local function WarnOnce(key, short, long)
+    if fsWarned[key] then return end
+    fsWarned[key] = true
+    warn("[PulseUI] " .. (long or short))
+    pcall(function()
+        PulseUI:Notify({ Title = "PulseUI", Content = short, Type = "Warning", Duration = 9 })
+    end)
+end
+
+function FS.RawRead(path)
+    local fn = Fn("readfile")
+    if not fn then return nil end
+    local ok, res = pcall(fn, path)
     if ok and type(res) == "string" then return res end
     return nil
 end
 
-function FS.Write(path, content)
-    if typeof(writefile) ~= "function" then
-        WarnOnce("nowrite", "Your executor does not support writefile, so SaveKey / SaveConfig can't work.")
-        return false
+-- Writes a file and reads it back to be sure it really exists (some executors fail silently).
+function FS.RawWrite(path, content)
+    local wf = Fn("writefile")
+    if not wf then return false, "writefile is not available" end
+    local ok, err = pcall(wf, path, content)
+    if not ok then return false, tostring(err) end
+    if Fn("readfile") then
+        if FS.RawRead(path) ~= content then return false, "the file was not created" end
     end
-    local ok, err = pcall(writefile, path, content)
-    if not ok then WarnOnce("write:" .. path, "Could not write '" .. path .. "': " .. tostring(err)) end
-    return ok
+    return true
+end
+
+function FS.Read(path)
+    local raw = FS.RawRead(path)
+    if raw ~= nil then return raw end
+    return Memory()[path]
+end
+
+-- Writes to disk (verified) and mirrors it in memory. Returns true when it reached the disk.
+function FS.Write(path, content, fallbackPath)
+    local mem = Memory()
+    mem[path] = content
+    local ok, err = FS.RawWrite(path, content)
+    if not ok and fallbackPath and fallbackPath ~= path then
+        mem[fallbackPath] = content
+        local ok2, err2 = FS.RawWrite(fallbackPath, content)
+        if ok2 then return true, fallbackPath end
+        err = err2 or err
+    end
+    if not ok then
+        WarnOnce("write:" .. path, "Files can't be saved here. Settings last until you close Roblox.",
+            "Could not write '" .. path .. "': " .. tostring(err) .. " (the value is kept in memory until Roblox closes)")
+    end
+    return ok, path
 end
 
 function FS.Delete(path)
-    if typeof(delfile) ~= "function" then return false end
-    return (pcall(delfile, path))
+    local mem = Memory()
+    local had = mem[path] ~= nil
+    mem[path] = nil
+    local df = Fn("delfile")
+    if df and FS.RawRead(path) ~= nil then
+        local ok = pcall(df, path)
+        return ok or had
+    end
+    return had
 end
 
 -- Makes sure a folder exists. Returns true when the folder can be used.
 function FS.EnsureFolder(folder)
-    if typeof(makefolder) ~= "function" then return false end
-    if typeof(isfolder) == "function" then
-        local ok, exists = pcall(isfolder, folder)
+    local mk = Fn("makefolder")
+    if not mk then return false end
+    local isf = Fn("isfolder")
+    if isf then
+        local ok, exists = pcall(isf, folder)
         if ok and exists then return true end
     end
-    pcall(makefolder, folder)
-    if typeof(isfolder) == "function" then
-        local ok, exists = pcall(isfolder, folder)
+    pcall(mk, folder)
+    if isf then
+        local ok, exists = pcall(isf, folder)
         return (ok and exists) and true or false
     end
     return true -- can't verify it, assume it worked
@@ -1491,6 +1585,38 @@ function FS.SafePath(path)
         return (string.gsub(path, "[/\\]", "_"))
     end
     return path
+end
+
+-- Write/read self-test (cached)
+local storageCheck
+function FS.Check()
+    if storageCheck then return storageCheck end
+    local result = { ok = false, message = "" }
+    if not Fn("writefile") or not Fn("readfile") then
+        result.message = "writefile / readfile are not available in this executor"
+    else
+        local ok, err = FS.RawWrite("PulseUI_selftest.txt", "ok")
+        if not ok then
+            result.message = "writefile failed: " .. tostring(err)
+        else
+            result.ok = true
+            result.message = "files work"
+            local df = Fn("delfile")
+            if df then pcall(df, "PulseUI_selftest.txt") end
+        end
+    end
+    storageCheck = result
+    return result
+end
+
+-- Shows an on-screen warning when the executor can't save files. Returns true when files work.
+function FS.Warn()
+    local c = FS.Check()
+    if not c.ok then
+        WarnOnce("storage", "Files can't be saved here. Settings last until you close Roblox.",
+            "Storage check failed: " .. c.message .. " (settings are kept in memory until Roblox closes)")
+    end
+    return c.ok
 end
 
 local function CleanName(str)
@@ -1529,7 +1655,7 @@ function PulseUI:_Snapshot()
     return table.concat(parts, "|")
 end
 
-function PulseUI:SaveConfig(name, silent)
+function PulseUI:SaveConfig(name, silent, auto)
     local data, count = {}, 0
     for flag, api in pairs(self.Flags) do
         local okGet, value = pcall(function() return api:Get() end)
@@ -1539,24 +1665,34 @@ function PulseUI:SaveConfig(name, silent)
         end
     end
     if count == 0 then
-        WarnOnce("noflags", "There are no elements with a Flag, so there is nothing to save. Add Flag = \"name\" to the elements you want to save.")
+        WarnOnce("noflags", "Nothing to save: add Flag = \"name\" to your elements.",
+            "There are no elements with a Flag, so there is nothing to save. Add Flag = \"name\" to the elements you want to save.")
     end
 
     local ok = false
     local okEnc, json = pcall(function() return HttpService:JSONEncode(data) end)
     if okEnc then
         local primary, fallback = ConfigLocations(name)
-        ok = FS.Write(primary, json)
-        if not ok and fallback ~= primary then ok = FS.Write(fallback, json) end
+        ok = FS.Write(primary, json, fallback)
     else
         warn("[PulseUI] Could not encode the config: " .. tostring(json))
     end
 
-    if self.AutoNotify and not silent then
-        self:Notify({
-            Title = L("cfg"), Content = ok and (L("cfg_saved") .. name) or L("cfg_save_fail"),
-            Type = ok and "Success" or "Error", Theme = self._theme,
-        })
+    if not silent then
+        if ok then
+            -- gear notification (automatic saves are limited to one every 4 seconds)
+            local tooSoon = auto and (os.clock() - (self._lastSaveNotify or -100)) < 4
+            if self.SaveNotify ~= false and not tooSoon then
+                self._lastSaveNotify = os.clock()
+                local label = tostring(name or "")
+                self:Notify({
+                    Title = label ~= "" and (L("cfg_saved_title") .. ": " .. label) or L("cfg_saved_title"),
+                    Content = L("cfg_saved_text"), Type = "Save", Theme = self._theme, Duration = 3,
+                })
+            end
+        elseif self.AutoNotify then
+            self:Notify({ Title = L("cfg"), Content = L("cfg_save_fail"), Type = "Error", Theme = self._theme })
+        end
     end
     return ok
 end
@@ -1600,28 +1736,60 @@ end
 
 function PulseUI:GetConfigs()
     local out, seen = {}, {}
-    if typeof(listfiles) ~= "function" then return out end
     local folder = PulseUI.ConfigFolder
     local hasFolder = folder and folder ~= ""
     local dirs = { { dir = "", prefix = "PulseUI_" .. (hasFolder and (CleanName(folder) .. "_") or "") } }
     if hasFolder then table.insert(dirs, 1, { dir = folder, prefix = "PulseUI_" }) end
-    for _, d in ipairs(dirs) do
-        local ok, files = pcall(listfiles, d.dir)
-        if ok and type(files) == "table" then
-            for _, path in ipairs(files) do
-                local file = string.match(tostring(path), "([^/\\]+)$")
-                if file and string.sub(file, 1, #d.prefix) == d.prefix and string.sub(file, -5) == ".json" then
-                    local n = string.sub(file, #d.prefix + 1, -6)
-                    if n ~= "" and not seen[n] then
-                        seen[n] = true
-                        table.insert(out, n)
-                    end
-                end
+
+    local function consider(path, prefix)
+        local file = string.match(tostring(path), "([^/\\]+)$")
+        if file and string.sub(file, 1, #prefix) == prefix and string.sub(file, -5) == ".json" then
+            local n = string.sub(file, #prefix + 1, -6)
+            if n ~= "" and not seen[n] then
+                seen[n] = true
+                table.insert(out, n)
             end
+        end
+    end
+
+    local lf = Fn("listfiles")
+    for _, d in ipairs(dirs) do
+        if lf then
+            local ok, files = pcall(lf, d.dir)
+            if ok and type(files) == "table" then
+                for _, path in ipairs(files) do consider(path, d.prefix) end
+            end
+        end
+        for path in pairs(Memory()) do
+            local dirOfPath = string.match(path, "^(.*)/[^/]*$") or ""
+            if dirOfPath == d.dir then consider(path, d.prefix) end
         end
     end
     table.sort(out)
     return out
+end
+
+-- Human readable storage diagnostics (what the executor supports + a real write/read test)
+function PulseUI:StorageReport()
+    local exec = "unknown"
+    pcall(function()
+        local f = Fn("identifyexecutor") or Fn("getexecutorname")
+        if f then exec = tostring((f())) end
+    end)
+    local lines = { "Executor: " .. exec }
+    local fns = {}
+    for _, name in ipairs({ "writefile", "readfile", "isfile", "delfile", "makefolder", "isfolder", "listfiles" }) do
+        table.insert(fns, name .. "=" .. (Fn(name) and "yes" or "NO"))
+    end
+    table.insert(lines, table.concat(fns, " "))
+    storageCheck = nil -- run the test again
+    local c = FS.Check()
+    table.insert(lines, "Write/read test: " .. (c.ok and "OK" or ("FAILED - " .. c.message)))
+    local folder = PulseUI.ConfigFolder
+    if folder and folder ~= "" then
+        table.insert(lines, "Folder '" .. folder .. "': " .. (FS.EnsureFolder(folder) and "OK" or "can't be created, using the root"))
+    end
+    return table.concat(lines, "\n"), c.ok
 end
 
 -- ========== Access restrictions ==========
@@ -1879,9 +2047,7 @@ function PulseUI:KeySystem(opts)
     -- Saved key from a previous session
     local startStatus
     if opts.SaveKey then
-        if typeof(readfile) ~= "function" or typeof(writefile) ~= "function" then
-            WarnOnce("nokeyfs", "Your executor does not support readfile/writefile, so SaveKey can't work.")
-        end
+        FS.Warn() -- on-screen warning if the executor can't save files
         local raw = FS.Read(fileName)
         if raw and raw ~= "" then
             local savedKey, savedTime = raw, nil
@@ -2101,7 +2267,15 @@ function PulseUI:KeySystem(opts)
                 setStatus(L("key_ok"), green)
                 if not rgbBorder then Tween(stroke, { Color = green, Transparency = 0 }, 0.2) end
                 if opts.SaveKey then
-                    FS.Write(fileName, HttpService:JSONEncode({ key = Trim(input), time = os.time() }))
+                    local saved = FS.Write(fileName, HttpService:JSONEncode({ key = Trim(input), time = os.time() }),
+                        (string.gsub(fileName, "[/\\]", "_")))
+                    if saved and notify then
+                        local label = opts.SaveName and tostring(opts.SaveName) or ""
+                        self:Notify({
+                            Title = label ~= "" and (L("key_saved_title") .. ": " .. label) or L("key_saved_title"),
+                            Content = L("key_saved_text"), Type = "Save", Theme = theme, Duration = 3,
+                        })
+                    end
                 end
                 if notify then
                     self:Notify({ Title = L("key_title"), Content = L("key_granted"), Type = "Success", Theme = theme, Duration = 3 })
@@ -2250,6 +2424,7 @@ function PulseUI:CreateWindow(opts)
     if opts.ConfigFolder then self.ConfigFolder = tostring(opts.ConfigFolder) end
     self.Animations = opts.Animations ~= false
     self.AutoNotify = opts.AutoNotify == true
+    if opts.SaveNotify ~= nil then self.SaveNotify = opts.SaveNotify end
     if opts.NotifyPosition then self:SetNotifyPosition(opts.NotifyPosition) end
     if opts.Sounds then
         self.Sounds.Enabled = true
@@ -2287,6 +2462,7 @@ function PulseUI:CreateWindow(opts)
         elseif not string.find(tostring(ks.FileName), "%.") then
             ks.FileName = tostring(ks.FileName) .. ".txt"
         end
+        if ks.SaveName == nil then ks.SaveName = winTitle end -- name shown in the "Key saved" notification
         usedKeySettings = ks
         local granted = self:KeySystem(ks)
         if not granted then
@@ -3129,6 +3305,12 @@ function PulseUI:CreateWindow(opts)
     -- ----- Automatic config (AutoLoad / AutoSave) -----
     local cfgName = window.ConfigName
     local loadDelay = opts.AutoLoadDelay or 0.6
+    if opts.AutoSave or opts.AutoLoad then
+        task.spawn(function()
+            task.wait(loadDelay)
+            FS.Warn() -- on-screen warning if the executor can't save files
+        end)
+    end
     if opts.AutoLoad then
         task.spawn(function()
             task.wait(loadDelay) -- waits until the script has created its elements
@@ -3158,7 +3340,7 @@ function PulseUI:CreateWindow(opts)
                 local cur = PulseUI:_Snapshot()
                 if cur ~= last then
                     last = cur
-                    PulseUI:SaveConfig(cfgName, true)
+                    PulseUI:SaveConfig(cfgName, false, true)
                 end
             end
         end)
